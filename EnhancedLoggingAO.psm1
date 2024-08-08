@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Script that initiates the EnhancedLoggingAO module.
+    Script that initiates the module.
 
 .DESCRIPTION
     This script dynamically loads functions from the Public and Private directories.
@@ -11,9 +11,6 @@
     Author: Abdullah Ollivierre
     Contact:
     Website:
-
-.PARAMETER MYMODULE_CONFIG_PATH
-    Environment variable that specifies the path to the module configuration JSON.
 #>
 
 [CmdletBinding()]
@@ -25,16 +22,6 @@ Process {
     $privateDir = Join-Path -Path $PSScriptRoot -ChildPath "Private"
     $PublicFunctions = @(Get-ChildItem -Path $publicDir -Filter "*.ps1" -ErrorAction SilentlyContinue)
     $PrivateFunctions = @(Get-ChildItem -Path $privateDir -Filter "*.ps1" -ErrorAction SilentlyContinue)
-
-    # Load configuration from JSON file if available
-    $JSONconfigPath = $env:MYMODULE_CONFIG_PATH
-    if (Test-Path -Path $JSONconfigPath) {
-        $config = Get-Content -Path $JSONconfigPath | ConvertFrom-Json
-        Write-Host "Configuration loaded from $JSONconfigPath"
-    }
-    else {
-        Write-Error "Config file not found at path: $JSONconfigPath"
-    }
 
     # Verbose logging of function files found
     Write-Host "Public Functions found: $($PublicFunctions.Count)"
