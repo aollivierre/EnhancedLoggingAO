@@ -1,7 +1,7 @@
 function Log-Params {
     <#
     .SYNOPSIS
-    Logs the provided parameters and their values.
+    Logs the provided parameters and their values with the parent function name appended.
     #>
     [CmdletBinding()]
     param (
@@ -10,21 +10,26 @@ function Log-Params {
     )
 
     Begin {
-        # Write-EnhancedLog -Message "Starting Log-Params function" -Level "INFO"
+        # Get the name of the parent function
+        $parentFunctionName = (Get-PSCallStack)[1].Command
+
+        # Write-EnhancedLog -Message "Starting Log-Params function in $parentFunctionName" -Level "INFO"
     }
 
     Process {
         try {
             foreach ($key in $Params.Keys) {
-                Write-EnhancedLog -Message "$key $($Params[$key])" -Level "INFO"
+                # Append the parent function name to the key
+                $enhancedKey = "$parentFunctionName.$key"
+                Write-EnhancedLog -Message "$enhancedKey $($Params[$key])" -Level "INFO"
             }
         } catch {
-            Write-EnhancedLog -Message "An error occurred while logging parameters: $($_.Exception.Message)" -Level "ERROR"
+            Write-EnhancedLog -Message "An error occurred while logging parameters in $parentFunctionName $($_.Exception.Message)" -Level "ERROR"
             Handle-Error -ErrorRecord $_
         }
     }
 
     End {
-        # Write-EnhancedLog -Message "Exiting Log-Params function" -Level "INFO"
+        # Write-EnhancedLog -Message "Exiting Log-Params function in $parentFunctionName" -Level "INFO"
     }
 }

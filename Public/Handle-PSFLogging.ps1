@@ -1,11 +1,82 @@
+function Copy-PSFLogs {
+    [CmdletBinding()]
+    param (
+        [string]$SourcePath,
+        [string]$DestinationPath
+    )
+
+    Begin {
+        Write-EnhancedLog -Message "Starting Copy-PSFLogs function..." -Level "NOTICE"
+        Log-Params -Params $PSCmdlet.MyInvocation.BoundParameters
+    }
+
+    Process {
+        if (Test-Path -Path $SourcePath) {
+            try {
+                Copy-Item -Path "$SourcePath*" -Destination $DestinationPath -Recurse -Force -ErrorAction Stop
+                Write-EnhancedLog -Message "Log files successfully copied from $SourcePath to $DestinationPath" -Level "INFO"
+            }
+            catch {
+                Write-EnhancedLog -Message "Failed to copy logs from $SourcePath. Error: $_" -Level "ERROR"
+            }
+        }
+        else {
+            Write-EnhancedLog -Message "Log path not found: $SourcePath" -Level "WARNING"
+        }
+    }
+
+    End {
+        Write-EnhancedLog -Message "Exiting Copy-PSFLogs function" -Level "NOTICE"
+    }
+}
+function Remove-PSFLogs {
+    [CmdletBinding()]
+    param (
+        [string]$SourcePath
+    )
+
+    Begin {
+        Write-EnhancedLog -Message "Starting Remove-PSFLogs function..." -Level "NOTICE"
+        Log-Params -Params $PSCmdlet.MyInvocation.BoundParameters
+    }
+
+    Process {
+        if (Test-Path -Path $SourcePath) {
+            try {
+                Remove-Item -Path "$SourcePath*" -Recurse -Force -ErrorAction Stop
+                Write-EnhancedLog -Message "Logs successfully removed from $SourcePath" -Level "INFO"
+            }
+            catch {
+                Write-EnhancedLog -Message "Failed to remove logs from $SourcePath. Error: $_" -Level "ERROR"
+            }
+        }
+        else {
+            Write-EnhancedLog -Message "Log path not found: $SourcePath" -Level "WARNING"
+        }
+    }
+
+    End {
+        Write-EnhancedLog -Message "Exiting Remove-PSFLogs function" -Level "NOTICE"
+    }
+}
 function Handle-PSFLogging {
     [CmdletBinding()]
     param (
-        [string]$systemSourcePath = "C:\Windows\System32\config\systemprofile\AppData\Roaming\WindowsPowerShell\PSFramework\Logs\",
-        [string]$PSFPath = "C:\Logs\PSF"
+        [string]$SystemSourcePathWindowsPS = "C:\Windows\System32\config\systemprofile\AppData\Roaming\WindowsPowerShell\PSFramework\Logs\",
+        [string]$SystemSourcePathPS = "C:\Windows\System32\config\systemprofile\AppData\Roaming\PowerShell\PSFramework\Logs\",
+        [string]$UserSourcePathWindowsPS = "$env:USERPROFILE\AppData\Roaming\WindowsPowerShell\PSFramework\Logs\",
+        [string]$UserSourcePathPS = "$env:USERPROFILE\AppData\Roaming\PowerShell\PSFramework\Logs\",
+        [string]$PSFPath = "C:\Logs\PSF",
+        [string]$ParentScriptName,
+        [string]$JobName,
+        [bool]$SkipSYSTEMLogCopy = $false,
+        [bool]$SkipSYSTEMLogRemoval = $false
     )
 
-    try {
+    Begin {
+        Write-EnhancedLog -Message "Starting Handle-PSFLogging function..." -Level "NOTICE"
+        Log-Params -Params $PSCmdlet.MyInvocation.BoundParameters
+
         # Get the current username and script name
         $username = if ($env:USERNAME) { $env:USERNAME } else { "UnknownUser" }
         $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.ScriptName)
@@ -22,35 +93,25 @@ function Handle-PSFLogging {
             New-Item -ItemType Directory -Path $logFolderPath -Force
             Write-EnhancedLog -Message "Created destination directory at $logFolderPath" -Level "INFO"
         }
+    }
 
-        # Copy logs from the SYSTEM profile path
-        if (Test-Path -Path $systemSourcePath) {
-            try {
-                Copy-Item -Path "$systemSourcePath*" -Destination $logFolderPath -Recurse -Force -ErrorAction Stop
-                Write-EnhancedLog -Message "SYSTEM profile log files successfully copied to $logFolderPath" -Level "INFO"
-            }
-            catch {
-                Write-EnhancedLog -Message "Failed to copy SYSTEM profile logs. Error: $_" -Level "ERROR"
-            }
+    Process {
+        # Copy logs from both SYSTEM profile paths
+        
+        if (-not $SkipSYSTEMLogCopy) {
+            Copy-PSFLogs -SourcePath $SystemSourcePathWindowsPS -DestinationPath $logFolderPath
+            Write-EnhancedLog -Message "Copied SYSTEM logs from $SystemSourcePathWindowsPS to $logFolderPath." -Level "INFO"
+        
+            Copy-PSFLogs -SourcePath $SystemSourcePathPS -DestinationPath $logFolderPath
+            Write-EnhancedLog -Message "Copied SYSTEM logs from $SystemSourcePathPS to $logFolderPath." -Level "INFO"
         }
         else {
-            Write-EnhancedLog -Message "SYSTEM profile log path not found: $systemSourcePath" -Level "WARNING"
+            Write-EnhancedLog -Message "Skipping SYSTEM log copy as per the provided parameter." -Level "INFO"
         }
 
-        # Copy logs from the user's profile path
-        $userSourcePath = "$env:USERPROFILE\AppData\Roaming\WindowsPowerShell\PSFramework\Logs\"
-        if (Test-Path -Path $userSourcePath) {
-            try {
-                Copy-Item -Path "$userSourcePath*" -Destination $logFolderPath -Recurse -Force -ErrorAction Stop
-                Write-EnhancedLog -Message "User profile log files successfully copied to $logFolderPath" -Level "INFO"
-            }
-            catch {
-                Write-EnhancedLog -Message "Failed to copy user profile logs. Error: $_" -Level "ERROR"
-            }
-        }
-        else {
-            Write-EnhancedLog -Message "User profile log path not found: $userSourcePath" -Level "WARNING"
-        }
+        # Copy logs from the user's profile paths for both PowerShell versions
+        Copy-PSFLogs -SourcePath $UserSourcePathWindowsPS -DestinationPath $logFolderPath
+        Copy-PSFLogs -SourcePath $UserSourcePathPS -DestinationPath $logFolderPath
 
         # Verify that the files have been copied
         if (Test-Path -Path $logFolderPath) {
@@ -60,50 +121,42 @@ function Handle-PSFLogging {
             Write-EnhancedLog -Message "Failed to process log files." -Level "ERROR"
         }
 
-        # Remove logs from the SYSTEM profile path
-        if (Test-Path -Path $systemSourcePath) {
-            try {
-                Remove-Item -Path "$systemSourcePath*" -Recurse -Force -ErrorAction Stop
-                Write-EnhancedLog -Message "Logs successfully removed from $systemSourcePath" -Level "INFO"
-            }
-            catch {
-                Write-EnhancedLog -Message "Failed to remove logs. Error: $_" -Level "ERROR"
-            }
+        # Remove logs from the SYSTEM profile paths   
+        if (-not $SkipSYSTEMLogRemoval) {
+            # Remove logs from the SYSTEM profile paths
+            Remove-PSFLogs -SourcePath $SystemSourcePathWindowsPS
+            Write-EnhancedLog -Message "Removed SYSTEM logs from $SystemSourcePathWindowsPS." -Level "INFO"
+            
+            Remove-PSFLogs -SourcePath $SystemSourcePathPS
+            Write-EnhancedLog -Message "Removed SYSTEM logs from $SystemSourcePathPS." -Level "INFO"
         }
         else {
-            Write-EnhancedLog -Message "Log path not found: $systemSourcePath" -Level "WARNING"
+            Write-EnhancedLog -Message "Skipping SYSTEM log removal as per the provided parameter." -Level "INFO"
         }
 
-        #Rename SYSTEM logs in PSF to append SYSTEM to easily identify these files as they were generated in the SYSTEM context and their levels are setup to Output instead of Info
-        Rename-LogFilesWithUsername -LogDirectoryPath $logFolderPath
+        # Remove logs from the User profile paths
+        Remove-PSFLogs -SourcePath $UserSourcePathWindowsPS
+        Remove-PSFLogs -SourcePath $UserSourcePathPS
 
-        # Remove logs from the user profile path
-        # if (Test-Path -Path $userSourcePath) {
-        #     try {
-        #         Remove-Item -Path "$userSourcePath*" -Recurse -Force -ErrorAction Stop
-        #         Write-EnhancedLog -Message "Logs successfully removed from $userSourcePath" -Level "INFO"
-        #     }
-        #     catch {
-        #         Write-EnhancedLog -Message "Failed to remove logs. Error: $_" -Level "ERROR"
-        #     }
-        # }
-        # else {
-        #     Write-EnhancedLog -Message "Log path not found: $userSourcePath" -Level "WARNING"
-        # }
+        # Rename SYSTEM logs in PSF to append SYSTEM to easily identify these files
+        $RenamePSFLogFilesParams = @{
+            LogDirectoryPath = $logFolderPath 
+            ParentScriptName = $ParentScriptName
+            JobName          = $jobName
+        }
+        Rename-PSFLogFilesWithUsername @RenamePSFLogFilesParams
     }
-    catch {
-        Write-EnhancedLog -Message "An error occurred in Handle-PSFLogging: $_" -Level "ERROR"
-        Handle-Error -ErrorRecord $_
-        throw $_  # Re-throw the error after logging it
+
+    End {
+        Write-EnhancedLog -Message "Exiting Handle-PSFLogging function" -Level "NOTICE"
     }
 }
-
-
-#usage
-
 # $HandlePSFLoggingParams = @{
-#     systemSourcePath = "C:\Windows\System32\config\systemprofile\AppData\Roaming\WindowsPowerShell\PSFramework\Logs\"
-#     PSFPath          = "C:\Logs\PSF"
+#     SystemSourcePathWindowsPS = "C:\Windows\System32\config\systemprofile\AppData\Roaming\WindowsPowerShell\PSFramework\Logs\"
+#     SystemSourcePathPS        = "C:\Windows\System32\config\systemprofile\AppData\Roaming\PowerShell\PSFramework\Logs\"
+#     UserSourcePathWindowsPS   = "$env:USERPROFILE\AppData\Roaming\WindowsPowerShell\PSFramework\Logs\"
+#     UserSourcePathPS          = "$env:USERPROFILE\AppData\Roaming\PowerShell\PSFramework\Logs\"
+#     PSFPath                   = "C:\Logs\PSF"
 # }
 
 # Handle-PSFLogging @HandlePSFLoggingParams

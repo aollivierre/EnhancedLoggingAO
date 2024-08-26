@@ -1,13 +1,15 @@
 function Get-TranscriptFilePath {
     [CmdletBinding()]
     param (
-        [string]$TranscriptsPath = "C:\Logs\Transcript",
-        [string]$JobName = "AAD Migration"
+        [string]$TranscriptsPath,
+        [string]$JobName,
+        [string]$ParentScriptName
+
     )
 
     # Ensure the destination directory exists
     if (-not (Test-Path -Path $TranscriptsPath)) {
-        New-Item -ItemType Directory -Path $TranscriptsPath -Force
+        New-Item -ItemType Directory -Path $TranscriptsPath -Force | Out-Null
         Write-EnhancedLog -Message "Created Transcripts directory at: $TranscriptsPath" -Level "INFO"
     }
 
@@ -19,12 +21,9 @@ function Get-TranscriptFilePath {
         $username = if ($env:USERNAME) { $env:USERNAME } else { "UnknownUser" }
         Write-EnhancedLog -Message "Current username: $username" -Level "INFO"
 
-        # Get the script name from $MyInvocation
-        $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.ScriptName)
-        if (-not $scriptName) {
-            $scriptName = "UnknownScript"
-        }
-        Write-EnhancedLog -Message "Script name: $scriptName" -Level "INFO"
+        # Get the parent script name using Get-ParentScriptName function
+        # $scriptName = Get-ParentScriptName
+        Write-EnhancedLog -Message "Script name: $ParentScriptName" -Level "INFO"
 
         # Check if running as SYSTEM using Test-RunningAsSystem
         $isSystem = Test-RunningAsSystem
@@ -33,28 +32,31 @@ function Get-TranscriptFilePath {
         # Get the current date for folder creation
         $currentDate = Get-Date -Format "yyyy-MM-dd"
 
+        # Construct the hostname and timestamp for the log filename
         $hostname = $env:COMPUTERNAME
         $timestamp = Get-Date -Format "yyyy-MM-dd-HH-mm-ss"
-        $logFolderPath = "$TranscriptsPath\$currentDate\$scriptName"
+        $logFolderPath = "$TranscriptsPath\$currentDate\$ParentScriptName"
 
         # Ensure the log directory exists
         if (-not (Test-Path -Path $logFolderPath)) {
-            New-Item -Path $logFolderPath -ItemType Directory -Force
+            New-Item -Path $logFolderPath -ItemType Directory -Force | Out-Null
             Write-EnhancedLog -Message "Created directory for log file: $logFolderPath" -Level "INFO"
         }
 
         # Generate log file path based on context
-        if ($isSystem) {
-            $logFilePath = "$logFolderPath\$hostname-$JobName-SYSTEM-$scriptName-transcript-$timestamp.log"
-            Write-EnhancedLog -Message "Generated log file path for SYSTEM: $logFilePath" -Level "INFO"
+        $logFilePath = if ($isSystem) {
+            "$logFolderPath\$hostname-$JobName-SYSTEM-$ParentScriptName-transcript-$timestamp.log"
         }
         else {
-            $logFilePath = "$logFolderPath\$hostname-$JobName-$username-$scriptName-transcript-$timestamp.log"
-            Write-EnhancedLog -Message "Generated log file path for non-SYSTEM: $logFilePath" -Level "INFO"
+            "$logFolderPath\$hostname-$JobName-$username-$ParentScriptName-transcript-$timestamp.log"
         }
 
-        # Convert the logFilePath to a string explicitly
-        $logFilePath = [string]$logFilePath
+        $logFilePath = Sanitize-LogFilePath -LogFilePath $logFilePath
+
+        # Validate the log file path before using it
+        Validate-LogFilePath -LogFilePath $logFilePath
+
+        Write-EnhancedLog -Message "Generated log file path: $logFilePath" -Level "INFO"
 
         Write-EnhancedLog -Message "Exiting Get-TranscriptFilePath function" -Level "NOTICE"
         return $logFilePath
