@@ -11,7 +11,7 @@ function Get-ParentScriptName {
             foreach ($frame in $callStack) {
                 if ($frame.ScriptName) {
                     $parentScriptName = $frame.ScriptName
-                    Write-EnhancedLog -Message "Found script in call stack: $parentScriptName" -Level "INFO"
+                    # Write-EnhancedLog -Message "Found script in call stack: $parentScriptName" -Level "INFO"
                 }
             }
 
@@ -22,11 +22,12 @@ function Get-ParentScriptName {
         }
 
         # If no script name was found, return 'UnknownScript'
-        Write-EnhancedLog -Message "No script name found in the call stack." -Level "WARNING"
+        # Write-EnhancedLog -Message "No script name found in the call stack." -Level "WARNING"
         return "UnknownScript"
     }
     catch {
         Write-EnhancedLog -Message "An error occurred while retrieving the parent script name: $_" -Level "ERROR"
+        Handle-Error -ErrorRecord $_
         return "UnknownScript"
     }
 }

@@ -7,13 +7,15 @@ function Handle-Error {
     try {
         if ($PSVersionTable.PSVersion.Major -ge 7) {
             $fullErrorDetails = Get-Error -InputObject $ErrorRecord | Out-String
-        } else {
+        }
+        else {
             $fullErrorDetails = $ErrorRecord.Exception | Format-List * -Force | Out-String
         }
 
         Write-EnhancedLog -Message "Exception Message: $($ErrorRecord.Exception.Message)" -Level "ERROR"
         Write-EnhancedLog -Message "Full Exception: $fullErrorDetails" -Level "ERROR"
-    } catch {
+    }
+    catch {
         # Fallback error handling in case of an unexpected error in the try block
         Write-EnhancedLog -Message "An error occurred while handling another error. Original Exception: $($ErrorRecord.Exception.Message)" -Level "CRITICAL"
         Write-EnhancedLog -Message "Handler Exception: $($_.Exception.Message)" -Level "CRITICAL"
@@ -28,6 +30,3 @@ function Handle-Error {
 # } catch {
 #     Handle-Error -ErrorRecord $_
 # }
-
-
-
