@@ -70,7 +70,8 @@ function Rename-PSFLogFilesWithUsername {
 
                 # Sanitize the username, timestamp, and computer name
                 $safeUsername = $username -replace '[\\/:*?"<>|]', '_'
-                $safeTimestamp = $timestamp -replace '[\\/:*?"<>|]', '_'
+                # $safeTimestamp = $timestamp -replace '[\\/:*?"<>|]', '_'
+                $safeTimestamp = $timestamp -replace '[\\/:*?"<>|]', '_' -replace '\s', '_'
                 $safeComputerName = $computerName -replace '[\\/:*?"<>|]', '_'
 
                 Write-EnhancedLog -Message "Sanitized username: $safeUsername" -Level "INFO"
